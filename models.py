@@ -5,19 +5,10 @@ from sklearn.preprocessing import StandardScaler
 from sklearn.svm import SVC
 
 
-class Random:
-    def __init__(self, features_extractor, data, tags):
-        self.tags = list(set(tags))
-
-    def classify(self, image):
-        return random.choice(self.tags)
-
-
 class BagOfWords:
     def __init__(self, features_extractor, data, tags, n_clusters=None):
         if not n_clusters:
-            # TODO len(data) // 10???
-            n_clusters = len(data) // 10
+            n_clusters = len(set(tags)) * 5
         self.ftext = features_extractor
         self.kmeans = KMeans(n_clusters=n_clusters, n_jobs=-1)
         self.svm = SVC()
@@ -53,3 +44,11 @@ class BagOfWords:
         histogram = [self._histogram(des)]
         histogram = self.scale.transform(histogram)
         return self.svm.predict(histogram)[0]
+
+
+class Random:
+    def __init__(self, features_extractor, data, tags):
+        self.tags = list(set(tags))
+
+    def classify(self, image):
+        return random.choice(self.tags)
