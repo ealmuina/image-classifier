@@ -3,7 +3,7 @@ import time
 import cv2
 
 from cnn import CNN
-from testing import caltech101
+from testing import cifar10
 
 
 class Classifier:
@@ -13,9 +13,10 @@ class Classifier:
     def test(self, testing_set):
         accepted = 0
         total = 0
-        for image, tag in testing_set:
+        for img, tag in testing_set:
             total += 1
-            img = cv2.imread(image)
+            if isinstance(img, str):
+                img = cv2.imread(img)
             answer = self.clf.classify(img)
             if answer == tag:
                 accepted += 1
@@ -26,9 +27,9 @@ class ClassicClassifier(Classifier):
     def __init__(self, features_extractor, model, training_set):
         data, tags = [], []
 
-        for image, tag in training_set:
-            img = cv2.imread(image)
-
+        for img, tag in training_set:
+            if isinstance(img, str):
+                img = cv2.imread(img)
             des = features_extractor.get_descriptors(img)
             if des is None:
                 continue
@@ -56,7 +57,7 @@ class CNNClassifier(Classifier):
 
 
 if __name__ == '__main__':
-    training, testing = caltech101.load()
+    training, testing = cifar10.load()
 
     # classifier = ClassicClassifier(features.SURF(), models.BagOfWords, training)
     classifier = CNNClassifier(training)

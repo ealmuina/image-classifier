@@ -74,16 +74,17 @@ class CNN:
         data, tags = shuffle(data, tags)
         tags = to_categorical(tags, len(self.categories))
         images = []
-        for image_path in data:
-            img = cv2.imread(image_path)
+        for img in data:
+            if isinstance(img, str):
+                img = cv2.imread(img)
             img = cv2.resize(img, (self.side, self.side), interpolation=cv2.INTER_AREA)
             images.append(np.asarray(img[:, :], dtype=np.float32))
         self.model.fit(
             images, tags, n_epoch=50, shuffle=True, show_metric=True, batch_size=96, run_id='images-classifier-cnn'
         )
 
-    def classify(self, image):
-        img = cv2.resize(image, (self.side, self.side), interpolation=cv2.INTER_AREA)
+    def classify(self, img):
+        img = cv2.resize(img, (self.side, self.side), interpolation=cv2.INTER_AREA)
         img = np.asarray(img[:, :], dtype=np.float32)
         prediction = self.model.predict([img])[0]
         return self.tags[max(range(len(prediction)), key=lambda i: prediction[i])]
