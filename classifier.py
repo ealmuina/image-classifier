@@ -2,8 +2,10 @@ import time
 
 import cv2
 
-from cnn import CNN
-from testing import cifar10
+import features
+import models
+from cnn import CNN, AlexNet, GoogLeNet, NIN, VGG16
+from testing import cifar10, cifar100, caltech101
 
 
 class Classifier:
@@ -52,12 +54,14 @@ class CNNClassifier(Classifier):
 
         print('Starting training...')
         start = time.time()
-        super().__init__(CNN(data, tags))
+        cnn = CNN(list(set(tags)))
+        cnn.train(data, tags)
+        super().__init__(cnn)
         print('Classifier trained in %.2f minutes' % ((time.time() - start) / 60))
 
 
 if __name__ == '__main__':
-    training, testing = cifar10.load()
+    training, testing = caltech101.load(categories=3, size_limit=50)
 
     # classifier = ClassicClassifier(features.SURF(), models.BagOfWords, training)
     classifier = CNNClassifier(training)

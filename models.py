@@ -1,6 +1,6 @@
 import random
 
-from sklearn.cluster import KMeans
+from sklearn.cluster import MiniBatchKMeans
 from sklearn.preprocessing import StandardScaler
 from sklearn.svm import SVC
 
@@ -10,7 +10,7 @@ class BagOfWords:
         if not n_clusters:
             n_clusters = len(set(tags)) * 5
         self.ftext = features_extractor
-        self.kmeans = KMeans(n_clusters=n_clusters, n_jobs=-1)
+        self.kmeans = MiniBatchKMeans(n_clusters=n_clusters)
         self.svm = SVC()
         self.scale = None
         self._train(data, tags)
