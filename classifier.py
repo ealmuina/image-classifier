@@ -1,11 +1,19 @@
+import json
 import time
 
 import cv2
+import keras.applications
 
 import features
 import models
-from cnn import CNN, AlexNet, GoogLeNet, NIN, VGG16
+from cnn import CNN, InceptionV3, BaseCNN, MobileNet
 from testing import cifar10, cifar100, caltech101
+
+
+def load_imagenet_categories(imagenet_class_index_path='imagenet_class_index.json'):
+    with open(imagenet_class_index_path) as imagenet:
+        imagenet = json.load(imagenet)
+        return [imagenet[str(i)][1] for i in range(1000)]
 
 
 class Classifier:
@@ -54,8 +62,9 @@ class CNNClassifier(Classifier):
 
         print('Starting training...')
         start = time.time()
-        cnn = CNN(list(set(tags)))
+        cnn = MobileNet(list(set(tags)))
         cnn.train(data, tags)
+        # cnn = BaseCNN(keras.applications.Xception(), load_imagenet_categories())
         super().__init__(cnn)
         print('Classifier trained in %.2f minutes' % ((time.time() - start) / 60))
 
