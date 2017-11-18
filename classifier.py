@@ -1,3 +1,5 @@
+import argparse
+import importlib.util
 import json
 import time
 
@@ -6,8 +8,7 @@ import keras.applications
 
 import features
 import models
-from cnn import CNN, InceptionV3, BaseCNN, MobileNet
-from testing import cifar10, cifar100, caltech101
+from cnn import CNN, InceptionV3, BaseCNN, MobileNet, Xception
 
 
 def load_imagenet_categories(imagenet_class_index_path='imagenet_class_index.json'):
@@ -53,25 +54,79 @@ class ClassicClassifier(Classifier):
 
 
 class CNNClassifier(Classifier):
-    def __init__(self, training_set):
+    def __init__(self, model, trained, training_set):
         data, tags = [], []
 
         for image, tag in training_set:
             data.append(image)
             tags.append(tag)
 
-        print('Starting training...')
-        start = time.time()
-        cnn = MobileNet(list(set(tags)))
-        cnn.train(data, tags)
-        # cnn = BaseCNN(keras.applications.Xception(), load_imagenet_categories())
+        if not trained:
+            print('Starting training...')
+            start = time.time()
+            cnn = model(list(set(tags)))
+            cnn.train(data, tags)
+            print('Classifier trained in %.2f minutes' % ((time.time() - start) / 60))
+        else:
+            cnn = BaseCNN(model, load_imagenet_categories())
+
         super().__init__(cnn)
-        print('Classifier trained in %.2f minutes' % ((time.time() - start) / 60))
+
+
+def test(dataset, classifier):
+    training, testing = dataset.load()
+
+    if classifier['type'].lower() == 'classic':
+        features_extractor = {
+            'sift': features.SIFT,
+            'surf': features.SURF,
+            'fast': features.FAST,
+            'brief': features.BRIEF,
+            'orb': features.ORB
+        }[classifier['features'].lower()]
+        model = {
+            'bagofwords': models.BagOfWords,
+        }[''.join(classifier['model'].lower().split())]
+        classifier = ClassicClassifier(features_extractor(), model, training)
+        classifier.test(testing)
+
+    elif classifier['type'].lower() == 'cnn':
+        input_shape = (224, 224, 3)
+        if classifier['trained']:
+            model = {
+                'mobilenet': keras.applications.MobileNet(input_shape=input_shape),
+                'inceptionresnetv2': keras.applications.InceptionResNetV2(input_shape=input_shape),
+                'inceptionv3': keras.applications.InceptionV3(input_shape=input_shape),
+                'xception': keras.applications.Xception(input_shape=input_shape)
+            }[''.join(classifier['model'].lower().split())]
+        else:
+            model = {
+                'cnn': CNN,
+                'mobilenet': MobileNet,
+                'inceptionv3': InceptionV3,
+                'xception': Xception,
+            }[''.join(classifier['model'].lower().split())]
+        classifier = CNNClassifier(model, classifier['trained'], training)
+        classifier.test(testing)
+
+    else:
+        raise SyntaxError("Invalid configuration file")
+
+
+def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument('config', help='Path to .json configuration file')
+    args = parser.parse_args()
+
+    with open(args.config) as config_file:
+        config = json.load(config_file)
+        for t in config:
+            spec = importlib.util.spec_from_file_location('dataset', t['dataset'] + '/__init__.py')
+            dataset = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(dataset)
+            for classifier in t['classifiers']:
+                test(dataset, classifier)
 
 
 if __name__ == '__main__':
-    training, testing = caltech101.load(categories=3, size_limit=50)
-
-    # classifier = ClassicClassifier(features.SURF(), models.BagOfWords, training)
-    classifier = CNNClassifier(training)
-    classifier.test(testing)
+    main()
