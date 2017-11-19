@@ -1,14 +1,14 @@
 import argparse
-import importlib.util
 import json
+import os
 import time
 
-import cv2
 import keras.applications
 
+from cnn import CNN, InceptionV3, BaseCNN, MobileNet, Xception
 import features
 import models
-from cnn import CNN, InceptionV3, BaseCNN, MobileNet, Xception
+import utils
 
 
 def load_imagenet_categories(imagenet_class_index_path='imagenet_class_index.json'):
@@ -18,16 +18,18 @@ def load_imagenet_categories(imagenet_class_index_path='imagenet_class_index.jso
 
 
 class Classifier:
-    def __init__(self, clf):
+    def __init__(self, clf, dataset):
         self.clf = clf
+        self.dataset = dataset
 
-    def test(self, testing_set):
+    def test(self, testing_path=None):
+        if not testing_path:
+            testing_path = os.path.join(self.dataset, 'test')
+        testing_set = utils.image_generator(testing_path)
         accepted = 0
         total = 0
         for img, tag in testing_set:
             total += 1
-            if isinstance(img, str):
-                img = cv2.imread(img)
             answer = self.clf.classify(img)
             if answer == tag:
                 accepted += 1
@@ -35,47 +37,29 @@ class Classifier:
 
 
 class ClassicClassifier(Classifier):
-    def __init__(self, features_extractor, model, training_set):
-        data, tags = [], []
-
-        for img, tag in training_set:
-            if isinstance(img, str):
-                img = cv2.imread(img)
-            des = features_extractor.get_descriptors(img)
-            if des is None:
-                continue
-            data.append(des)
-            tags.append(tag)
-
+    def __init__(self, features_extractor, model, dataset):
         print('Starting training...')
         start = time.time()
-        super().__init__(model(features_extractor, data, tags))
+        super().__init__(model(features_extractor, dataset), dataset)
         print('Classifier trained in %.2f minutes' % ((time.time() - start) / 60))
 
 
 class CNNClassifier(Classifier):
-    def __init__(self, model, trained, training_set):
-        data, tags = [], []
-
-        for image, tag in training_set:
-            data.append(image)
-            tags.append(tag)
-
-        if not trained:
+    def __init__(self, model, trained, dataset):
+        if trained:
+            cnn = BaseCNN(model, load_imagenet_categories())
+        else:
             print('Starting training...')
             start = time.time()
-            cnn = model(list(set(tags)))
-            cnn.train(data, tags)
+            train_path = os.path.join(dataset, 'train')
+            cnn = model(utils.get_categories(train_path))
+            cnn.train(dataset)
             print('Classifier trained in %.2f minutes' % ((time.time() - start) / 60))
-        else:
-            cnn = BaseCNN(model, load_imagenet_categories())
 
-        super().__init__(cnn)
+        super().__init__(cnn, dataset)
 
 
 def test(dataset, classifier):
-    training, testing = dataset.load()
-
     if classifier['type'].lower() == 'classic':
         features_extractor = {
             'sift': features.SIFT,
@@ -87,8 +71,8 @@ def test(dataset, classifier):
         model = {
             'bagofwords': models.BagOfWords,
         }[''.join(classifier['model'].lower().split())]
-        classifier = ClassicClassifier(features_extractor(), model, training)
-        classifier.test(testing)
+        classifier = ClassicClassifier(features_extractor(), model, dataset)
+        classifier.test()
 
     elif classifier['type'].lower() == 'cnn':
         input_shape = (224, 224, 3)
@@ -106,8 +90,8 @@ def test(dataset, classifier):
                 'inceptionv3': InceptionV3,
                 'xception': Xception,
             }[''.join(classifier['model'].lower().split())]
-        classifier = CNNClassifier(model, classifier['trained'], training)
-        classifier.test(testing)
+        classifier = CNNClassifier(model, classifier['trained'], dataset)
+        classifier.test()
 
     else:
         raise SyntaxError("Invalid configuration file")
@@ -121,11 +105,8 @@ def main():
     with open(args.config) as config_file:
         config = json.load(config_file)
         for t in config:
-            spec = importlib.util.spec_from_file_location('dataset', t['dataset'] + '/__init__.py')
-            dataset = importlib.util.module_from_spec(spec)
-            spec.loader.exec_module(dataset)
             for classifier in t['classifiers']:
-                test(dataset, classifier)
+                test(t['dataset'], classifier)
 
 
 if __name__ == '__main__':
