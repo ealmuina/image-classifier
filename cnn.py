@@ -13,8 +13,6 @@ from keras.optimizers import Adam, SGD
 from keras.preprocessing.image import ImageDataGenerator
 import numpy as np
 
-import utils
-
 
 class BaseCNN:
     def __init__(self, model, categories, side=224):
@@ -27,31 +25,33 @@ class BaseCNN:
         validation_path = os.path.join(dataset, 'validation')
 
         train_datagen = ImageDataGenerator(
-            rescale=1. / 255,
+            preprocessing_function=lambda x: preprocess_input(x, mode='tf'),
             shear_range=0.2,
             zoom_range=0.2,
             horizontal_flip=True)
 
-        test_datagen = ImageDataGenerator(rescale=1. / 255)
+        test_datagen = ImageDataGenerator(
+            preprocessing_function=lambda x: preprocess_input(x, mode='tf')
+        )
 
         train_generator = train_datagen.flow_from_directory(
             train_path,
-            target_size=(150, 150),
+            target_size=(self.side, self.side),
             batch_size=32,
-            class_mode='binary')
+            class_mode='categorical')
 
         validation_generator = test_datagen.flow_from_directory(
             validation_path,
-            target_size=(150, 150),
+            target_size=(self.side, self.side),
             batch_size=32,
-            class_mode='binary')
+            class_mode='categorical')
 
         self.model.fit_generator(
             train_generator,
-            steps_per_epoch=np.math.ceil(utils.get_size(train_path) / 32),
+            steps_per_epoch=np.math.ceil(train_generator.num_classes / 32),
             epochs=epochs,
             validation_data=validation_generator,
-            validation_steps=np.math.ceil(utils.get_size(validation_path) / 32))
+            validation_steps=np.math.ceil(validation_generator.num_classes / 32))
 
     def classify(self, img):
         img = cv2.resize(img, (self.side, self.side), interpolation=cv2.INTER_AREA)
