@@ -124,14 +124,14 @@ class _FineTunedCNN(BaseCNN):
 
 class InceptionV3(_FineTunedCNN):
     def __init__(self, categories, side=224):
-        super(InceptionV3, self).__init__(keras.applications.InceptionV3, categories, 249, side)
+        super(InceptionV3, self).__init__(keras.applications.InceptionV3, categories, 249, side)  # 311 layers total
 
 
 class MobileNet(_FineTunedCNN):
     def __init__(self, categories, side=224):
-        super(MobileNet, self).__init__(keras.applications.MobileNet, categories, 249, side)
+        super(MobileNet, self).__init__(keras.applications.MobileNet, categories, 78, side)  # 85 layers total
 
 
 class Xception(_FineTunedCNN):
     def __init__(self, categories, side=224):
-        super(Xception, self).__init__(keras.applications.Xception, categories, 249, side)
+        super(Xception, self).__init__(keras.applications.Xception, categories, 125, side)  # 131 layers total
