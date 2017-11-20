@@ -12,7 +12,7 @@ def image_generator(path):
 
 
 def get_categories(path):
-    return [c for c in pathlib.Path(path).iterdir()]
+    return [c.name for c in pathlib.Path(path).iterdir()]
 
 
 def get_size(path):
