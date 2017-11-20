@@ -7,8 +7,7 @@ import cv2
 def image_generator(path):
     for p in pathlib.Path(path).iterdir():
         for img in p.iterdir():
-            img_path = '%s/%s' % (img.cwd(), img)
-            img = cv2.imread(img_path)
+            img = cv2.imread(str(img))
             yield img, p.name
 
 
