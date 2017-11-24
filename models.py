@@ -64,11 +64,3 @@ class BagOfWords:
         histogram = self.scale.transform(histogram)
         probs = self.svm.predict_proba(histogram)
         return self.svm.classes_[np.argmax(probs)], np.max(probs)
-
-
-class Random:
-    def __init__(self, features_extractor, dataset):
-        self.tags = utils.get_categories(os.path.join(dataset, 'train'))
-
-    def classify(self, image):
-        return random.choice(self.tags)

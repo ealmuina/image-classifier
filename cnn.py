@@ -74,7 +74,7 @@ class SimpleCNN(BaseCNN):
             Flatten(),
             Dense(len(categories), activation='softmax')
         ])
-        model.compile(optimizer=Adam(lr=0.001), loss='categorical_crossentropy')
+        model.compile(optimizer=Adam(lr=0.001), loss='categorical_crossentropy', metrics=['accuracy'])
         super().__init__(model, categories, side)
 
 
@@ -93,7 +93,7 @@ class _TransferLearningCNN(BaseCNN):
         for layer in base_model.layers:
             layer.trainable = False
 
-        model.compile(optimizer='rmsprop', loss='categorical_crossentropy')
+        model.compile(optimizer='rmsprop', loss='categorical_crossentropy', metrics=['accuracy'])
         super().__init__(model, categories, side)
 
     def train(self, dataset, epochs=5):
