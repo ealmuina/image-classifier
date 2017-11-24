@@ -58,7 +58,7 @@ class BaseCNN:
         img = np.expand_dims(img, axis=0)
         img = preprocess_input(img, mode="tf")
         prediction = self.model.predict(img)
-        return self.categories[np.argmax(prediction)]
+        return self.categories[np.argmax(prediction)], np.max(prediction)
 
 
 class SimpleCNN(BaseCNN):
