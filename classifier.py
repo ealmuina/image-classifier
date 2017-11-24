@@ -5,16 +5,11 @@ import time
 
 import keras.applications
 
-from cnn import CNN, InceptionV3, BaseCNN, MobileNet, Xception
+import cnn
 import features
 import models
+import segmentation
 import utils
-
-
-def load_imagenet_categories(imagenet_class_index_path='imagenet_class_index.json'):
-    with open(imagenet_class_index_path) as imagenet:
-        imagenet = json.load(imagenet)
-        return [imagenet[str(i)][1] for i in range(1000)]
 
 
 class Classifier:
@@ -22,7 +17,7 @@ class Classifier:
         self.clf = clf
         self.dataset = dataset
 
-    def test(self, testing_path=None):
+    def test(self, confidence=0.5, testing_path=None):
         if not testing_path:
             testing_path = os.path.join(self.dataset, 'test')
         testing_set = utils.image_generator(testing_path)
@@ -30,10 +25,14 @@ class Classifier:
         total = 0
         for img, tag in testing_set:
             total += 1
-            answer = self.clf.classify(img)
-            if answer == tag:
+            answer_set = set()
+            for frame in segmentation.sliding_frame(img):
+                answer, prob = self.clf.classify(frame)
+                if prob >= confidence:
+                    answer_set.add(answer)
+            if tag in answer_set:
                 accepted += 1
-            print(accepted / total, answer, tag, sep='\t')
+            print(accepted / total, answer_set, tag, sep='\t')
 
 
 class ClassicClassifier(Classifier):
@@ -47,16 +46,16 @@ class ClassicClassifier(Classifier):
 class CNNClassifier(Classifier):
     def __init__(self, model, trained, dataset):
         if trained:
-            cnn = BaseCNN(model, load_imagenet_categories())
+            nn = cnn.BaseCNN(model, utils.load_imagenet_categories())
         else:
             print('Starting training...')
             start = time.time()
             train_path = os.path.join(dataset, 'train')
-            cnn = model(utils.get_categories(train_path))
-            cnn.train(dataset)
+            nn = model(utils.get_categories(train_path))
+            nn.train(dataset)
             print('Classifier trained in %.2f minutes' % ((time.time() - start) / 60))
 
-        super().__init__(cnn, dataset)
+        super().__init__(nn, dataset)
 
 
 def test(dataset, classifier):
@@ -85,10 +84,10 @@ def test(dataset, classifier):
             }[''.join(classifier['model'].lower().split())]
         else:
             model = {
-                'cnn': CNN,
-                'mobilenet': MobileNet,
-                'inceptionv3': InceptionV3,
-                'xception': Xception,
+                'simplecnn': cnn.SimpleCNN,
+                'mobilenet': cnn.MobileNet,
+                'inceptionv3': cnn.InceptionV3,
+                'xception': cnn.Xception,
             }[''.join(classifier['model'].lower().split())]
         classifier = CNNClassifier(model, classifier['trained'], dataset)
         classifier.test()

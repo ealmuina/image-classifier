@@ -1,6 +1,7 @@
 import os
 import random
 
+import numpy as np
 from sklearn.cluster import MiniBatchKMeans
 from sklearn.preprocessing import StandardScaler
 from sklearn.svm import SVC
@@ -16,7 +17,7 @@ class BagOfWords:
             n_clusters = len(utils.get_categories(train_path)) * 5
         self.ftext = features_extractor
         self.kmeans = MiniBatchKMeans(n_clusters=n_clusters)
-        self.svm = SVC()
+        self.svm = SVC(probability=True)
         self.scale = None
         self._train(train_path)
         self._score(validation_path)
@@ -61,7 +62,8 @@ class BagOfWords:
         des = self.ftext.get_descriptors(image)
         histogram = [self._histogram(des)]
         histogram = self.scale.transform(histogram)
-        return self.svm.predict(histogram)[0]
+        probs = self.svm.predict_proba(histogram)
+        return self.svm.classes_[np.argmax(probs)], np.max(probs)
 
 
 class Random:

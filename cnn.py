@@ -2,14 +2,14 @@ import os
 
 import cv2
 import keras
-import keras.applications
 from keras import Model
+import keras.applications
 from keras.applications.imagenet_utils import preprocess_input
 from keras.layers import GlobalAveragePooling2D
 from keras.models import Sequential
 from keras.layers.core import Flatten, Dense, Dropout
 from keras.layers.convolutional import Convolution2D, MaxPooling2D
-from keras.optimizers import Adam, SGD
+from keras.optimizers import Adam
 from keras.preprocessing.image import ImageDataGenerator
 import numpy as np
 
@@ -48,21 +48,20 @@ class BaseCNN:
 
         self.model.fit_generator(
             train_generator,
-            steps_per_epoch=np.math.ceil(train_generator.num_classes / 32),
+            steps_per_epoch=np.math.ceil(train_generator.samples / 32),
             epochs=epochs,
             validation_data=validation_generator,
-            validation_steps=np.math.ceil(validation_generator.num_classes / 32))
+            validation_steps=np.math.ceil(validation_generator.samples / 32))
 
     def classify(self, img):
-        img = cv2.resize(img, (self.side, self.side), interpolation=cv2.INTER_AREA)
-        img = np.asarray(img[:, :], dtype=np.float32)
-        img = preprocess_input(img, mode='tf')
+        img = cv2.resize(img, (self.side, self.side), interpolation=cv2.INTER_AREA).astype(np.float32)
         img = np.expand_dims(img, axis=0)
+        img = preprocess_input(img, mode="tf")
         prediction = self.model.predict(img)
         return self.categories[np.argmax(prediction)]
 
 
-class CNN(BaseCNN):
+class SimpleCNN(BaseCNN):
     def __init__(self, categories, side=32):
         model = Sequential([
             Convolution2D(32, 3, activation='relu', input_shape=(side, side, 3)),
@@ -79,59 +78,38 @@ class CNN(BaseCNN):
         super().__init__(model, categories, side)
 
 
-class _FineTunedCNN(BaseCNN):
+class _TransferLearningCNN(BaseCNN):
     def __init__(self, model_cls, categories, freezed_layers, side=224):
         self.freezed_layers = freezed_layers
-
-        # create the base pre-trained model
         base_model = model_cls(weights='imagenet', include_top=False, input_shape=(side, side, 3))
 
-        # add a global spatial average pooling layer
         x = base_model.output
         x = GlobalAveragePooling2D()(x)
-        # let's add a fully-connected layer
         x = Dense(1024, activation='relu')(x)
-        # and a logistic layer
         predictions = Dense(len(categories), activation='softmax')(x)
 
-        # this is the model we will training
         model = Model(inputs=base_model.input, outputs=predictions)
 
-        # first: training only the top layers (which were randomly initialized)
-        # i.e. freeze all convolutional InceptionV3 layers
         for layer in base_model.layers:
             layer.trainable = False
 
-        # compile the model (should be done *after* setting layers to non-trainable)
         model.compile(optimizer='rmsprop', loss='categorical_crossentropy')
         super().__init__(model, categories, side)
 
-    def train(self, dataset, epochs=25):
-        # training the model on the new data for a few epochs
-        super().train(dataset, 10)
-
-        # freeze the first self._freezed_layers layers and unfreeze the rest:
-        for layer in self.model.layers[:self.freezed_layers]:
-            layer.trainable = False
-        for layer in self.model.layers[self.freezed_layers:]:
-            layer.trainable = True
-
-        # we need to recompile the model for these modifications to take effect
-        # we use SGD with a low learning rate
-        self.model.compile(optimizer=SGD(lr=0.0001, momentum=0.9), loss='categorical_crossentropy')
+    def train(self, dataset, epochs=5):
         super().train(dataset, epochs)
 
 
-class InceptionV3(_FineTunedCNN):
+class InceptionV3(_TransferLearningCNN):
     def __init__(self, categories, side=224):
-        super(InceptionV3, self).__init__(keras.applications.InceptionV3, categories, 249, side)  # 311 layers total
+        super(InceptionV3, self).__init__(keras.applications.InceptionV3, categories, side)  # 311 layers
 
 
-class MobileNet(_FineTunedCNN):
+class MobileNet(_TransferLearningCNN):
     def __init__(self, categories, side=224):
-        super(MobileNet, self).__init__(keras.applications.MobileNet, categories, 78, side)  # 85 layers total
+        super(MobileNet, self).__init__(keras.applications.MobileNet, categories, side)  # 85 layers
 
 
-class Xception(_FineTunedCNN):
+class Xception(_TransferLearningCNN):
     def __init__(self, categories, side=224):
-        super(Xception, self).__init__(keras.applications.Xception, categories, 125, side)  # 131 layers total
+        super(Xception, self).__init__(keras.applications.Xception, categories, side)  # 131 layers
